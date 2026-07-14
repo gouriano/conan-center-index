@@ -428,7 +428,7 @@ class QtConan(ConanFile):
             self.tool_requires("pkgconf/[>=2.2 <3]")
 
         if self.options.get_safe("qtwebengine"):
-            self.tool_requires("nodejs/18.15.0")
+            self.tool_requires("nodejs/22.20.0")
             self.tool_requires("gperf/3.1")
             # gperf, bison, flex, python >= 2.7.5 & < 3
             if self.settings_build.os == "Windows":
@@ -886,6 +886,8 @@ class QtConan(ConanFile):
         filecontents += f"set(QT_VERSION_PATCH {ver.patch})\n"
         if self.settings.os == "Macos":
             filecontents += 'set(__qt_internal_cmake_apple_support_files_path "${CMAKE_CURRENT_LIST_DIR}/../../../lib/cmake/Qt6/macos")\n'
+        if self.settings.os == "Windows":
+            filecontents += 'set(__qt_internal_cmake_windows_support_files_path "${CMAKE_CURRENT_LIST_DIR}/../../../lib/cmake/Qt6/windows")\n'
         targets = ["moc", "qlalr", "rcc", "tracegen", "cmake_automoc_parser", "qmake", "qtpaths", "syncqt", "tracepointgen"]
         disabled_features = str(self.options.disabled_features).split()
         if self.options.with_dbus:
@@ -908,7 +910,11 @@ class QtConan(ConanFile):
                 # and `qhelpgenerator` is a subdirectory of assistant in qttools
                 targets.extend(["qhelpgenerator"])
             if "linguist" not in disabled_features:
-                targets.extend(["lconvert", "lprodump", "lrelease", "lrelease-pro", "lupdate", "lupdate-pro"])
+                targets.extend(["lconvert", "lrelease", "lrelease-pro", "lupdate", "lupdate-pro"])
+                if ver < "6.11.0":
+                    targets.extend(["lprodump"]) # Removed: https://doc.qt.io/qt-6/whatsnew611.html#qt-linguist
+                if ver >= "6.11.0":
+                    targets.extend(["lcheck", "ltext2id"]) # Added: https://doc.qt.io/qt-6/whatsnew611.html#qt-linguist
         if self.options.qtshadertools:
             targets.append("qsb")
         if self.options.qtdeclarative:
@@ -1643,6 +1649,10 @@ class QtConan(ConanFile):
                     _add_build_module(component_name, module)
 
                 module = os.path.join("lib", "cmake", m, f"{m}ConfigExtras.cmake")
+                if os.path.isfile(module):
+                    _add_build_module(component_name, module)
+
+                module = os.path.join("lib", "cmake", m, "QtInstallPaths.cmake")
                 if os.path.isfile(module):
                     _add_build_module(component_name, module)
 
